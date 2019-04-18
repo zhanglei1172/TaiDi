@@ -25,7 +25,7 @@ SHUFFLE = True
 TRAIN = True
 initial_checkpoint = None
 
-BATCH_SIZE = 1
+BATCH_SIZE = 2
 MIN_BOUND = 0.0
 MAX_BOUND = 2000.0
 

@@ -29,6 +29,7 @@ EPS = 1e-12
 PI  = np.pi
 INF = np.inf
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+device = torch.device('cpu')
 SEED = 2019
 
 if REPRODUCT:

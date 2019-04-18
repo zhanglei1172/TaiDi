@@ -10,10 +10,10 @@ from dependencies import *
 
 from models.Unet34 import Unet_scSE_hyper as Net
 
-def train_model(model, optimizer, scheduler, epoch, num_epochs=50, batchs=None, best_dice=None):
+def train_model(model, optimizer, scheduler, epoch, num_epochs=30, batchs=None, best_dice=None):
     # best_model_wts = copy.deepcopy(model.state_dict())
 
-    while epoch < num_epochs:
+    while epoch <= num_epochs:
     # for epoch in range(num_epochs):
         print('Epoch {}/{}'.format(epoch, num_epochs))
         print('-' * 20)
@@ -49,7 +49,9 @@ def train_model(model, optimizer, scheduler, epoch, num_epochs=50, batchs=None, 
 
                 with torch.set_grad_enabled(phase == 'train'):
                     logits = model(inputs)
-                    loss = model.criterion3(logits, labels) # TODO
+                    # TODO
+                    # loss = model.criterion3(logits, labels)
+                    loss = model.criterion3(logits, labels) + model.focal_loss(logits, labels, 1.0, 0.5, 0.25)
                     # loss = calc_loss(logits, labels, metrics)
                     dice += cal_dice(logits, labels)
                     metrics['loss'] += loss.detach().item() * labels.size(0)
@@ -141,11 +143,11 @@ if __name__ == '__main__':
             best_dice = checkpoint['best_dice']
 
             train_model(net, optimizer,
-                              scheduler, epoch=epoch, num_epochs=50, batchs=batchs, best_dice=best_dice)
+                              scheduler, epoch=epoch, num_epochs=30, batchs=batchs, best_dice=best_dice)
         else:
 
             train_model(net, optimizer,
-                              scheduler, epoch=1, num_epochs=50, batchs=1, best_dice=0)
+                              scheduler, epoch=1, num_epochs=30, batchs=1, best_dice=0)
     else:
         net.load_state_dict(torch.load(
             PATH_MODEL_TEST))

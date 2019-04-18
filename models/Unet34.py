@@ -9,7 +9,7 @@ import traning.loss as L
 # from torch.autograd import Variable
 # from itertools import filterfalse as ifilterfalse
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+device = torch.device('cpu')
 
 class ConvBn2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, dilation=1, stride=1, groups=1, is_bn=True):
@@ -108,7 +108,7 @@ class Unet_scSE_hyper(nn.Module):
         max_val = (-output).clamp(min=0)
         loss = output - output * target + max_val + ((-max_val).exp() + (-output - max_val).exp()).log()
 
-        # This formula gives us the log sigmoid of 1-p if y is 0 and of p if y is 1
+        # This formula gives us the log sigmoid of 1-p if y is 1 and of p if y is 0
         invprobs = F.logsigmoid(-output * (target * 2 - 1))
         focal_loss = alpha * (invprobs * gamma).exp() * loss
 
