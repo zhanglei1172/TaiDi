@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import models
+import traning.loss as L
 # from torch.autograd import Variable
 # from itertools import filterfalse as ifilterfalse
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')

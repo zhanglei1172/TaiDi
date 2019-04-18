@@ -3,3 +3,4 @@
 .history
 __pycache__
 .directory
+将删除 .idea/

@@ -1,26 +1,38 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
+
+# import os
+# import sys
+# parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# sys.path.append(parentdir)
+from traning.lr import *
 from dependencies import *
 
+from models.Unet34 import Unet_scSE_hyper as Net
 
-def train_model(model, optimizer, scheduler, num_epochs=25):
-    best_model_wts = copy.deepcopy(model.state_dict())
-    best_dice = 0
+def train_model(model, optimizer, scheduler, epoch, num_epochs=50, batchs=None, best_dice=None):
+    # best_model_wts = copy.deepcopy(model.state_dict())
 
-    for epoch in range(num_epochs):
-        print('Epoch {}/{}'.format(epoch, num_epochs - 1))
-        print('-' * 10)
+    while epoch < num_epochs:
+    # for epoch in range(num_epochs):
+        print('Epoch {}/{}'.format(epoch, num_epochs))
+        print('-' * 20)
 
         since = time.time()
-
-        # Each epoch has a training and validation phase
         for phase in ['train', 'val']:
             if phase == 'train':
-                scheduler.step()
-                for param_group in optimizer.param_groups:
-                    print("LR", param_group['lr'])
+                # TODO
+                if scheduler is not None:
+                    # lr = scheduler(epoch)
+                    lr = scheduler(batchs)
+
+                    adjust_learning_rate(optimizer, lr)
+                    lr = get_learning_rate(optimizer)
+                #
+                    print("LR: ", lr)
 
                 model.train()  # Set model to training mode
+                epoch += 1
             else:
                 model.eval()   # Set model to evaluate mode
 
@@ -34,47 +46,52 @@ def train_model(model, optimizer, scheduler, num_epochs=25):
 
                 # zero the parameter gradients
                 optimizer.zero_grad()
-                # with SummaryWriter(comment='U-Net') as w:
-                #     w.add_graph(model, (inputs,))
 
-                # forward
-                # track history if only in train
                 with torch.set_grad_enabled(phase == 'train'):
-                    outputs = model(inputs)
-                    loss = calc_loss(outputs, labels, metrics)
-                    dice += cal_dice(outputs, labels)
+                    logits = model(inputs)
+                    loss = model.criterion3(logits, labels) # TODO
+                    # loss = calc_loss(logits, labels, metrics)
+                    dice += cal_dice(logits, labels)
+                    metrics['loss'] += loss.detach().item() * labels.size(0)
 
                     # backward + optimize only if in training phase
                     if phase == 'train':
+                        # TODO
+                        if scheduler is not None:
+                            lr = scheduler(batchs)
+                            adjust_learning_rate(optimizer, lr)
+
+
+                        batchs += 1
                         loss.backward()
                         optimizer.step()
 
-                # statistics
                 epoch_samples += inputs.size(0)
+
             metrics['dice'] = dice
             print_metrics(metrics, epoch_samples, phase)
-            epoch_dice = metrics['dice'] / epoch_samples
 
-            # deep copy the model
-            if phase == 'val' and metrics['dice'] > best_dice:
-                print("saving best model")
-                best_dice = epoch_dice
-                best_model_wts = copy.deepcopy(model.state_dict())
-                torch.save(model.state_dict(), PATH_MODEL_SAVE)
-                # torch.save()
+
+            if phase == 'val':
+                torch.save(net.state_dict(), PATH_CHECKPOINT + 'checkpoint_%d_model.pth' % epoch)
+                torch.save({
+                    'optimizer': optimizer.state_dict(),
+                    'batchs': batchs,
+                    'epoch': epoch,
+                    'best_dice': max([best_dice, (metrics['dice'] / epoch_samples)])
+                }, PATH_CHECKPOINT + 'checkpoint_%d_optim.pth' % epoch)
+                if (metrics['dice'] / epoch_samples) > best_dice:
+                    print("saving best model")
+                    best_dice = metrics['dice'] / epoch_samples
+
+                    torch.save( model.state_dict(), PATH_MODEL_BEST)
 
         time_elapsed = time.time() - since
         print('{:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
 
     print('Best val loss: {:4f}'.format(best_dice))
 
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-    return model
-# use the same transformations for train/val in this example
-
-
-if __name__ == '__main__':
+def prepare_dataLoader():
     df = process_data("数据集1/*/*/*.dcm")
     df_, df_test = train_test_split(
         df, test_size=0.1, shuffle=True, random_state=SEED)
@@ -82,37 +99,53 @@ if __name__ == '__main__':
         df_, test_size=0.15, shuffle=True, random_state=SEED)
     df_train = df_train.reset_index(drop=True)
     df_val = df_val.reset_index(drop=True)
+    df_test = df_test.reset_index(drop=True)
     train_set = Data(df_train['path_dcm'],
                      df_train['path_mask'], transform=transform)  # TODO
-    val_set = Data(df_val['path_dcm'], df_train['path_mask'], transform=None)
+    val_set = Data(df_val['path_dcm'], df_val['path_mask'], transform=None)
+    test_set = Data(df_test['path_dcm'], df_test['path_mask'], transform=None)
 
     # image_datasets = {
     #     'train': train_set, 'val': val_set
     # }
     dataloaders = {
         'train': DataLoader(train_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
-        'val': DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+        'val': DataLoader(val_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0),
+        'test': DataLoader(test_set, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
     }
+    return dataloaders
 
-    net = UNet(1, 1).to(device)
+if __name__ == '__main__':
+    dataloaders = prepare_dataLoader()
 
-    if train:
-        if TRAIN_CONTINUE:
-            net.load_state_dict(torch.load(PATH_MODEL_SAVE))
-            optimizer_ft = optim.Adam(
-                filter(lambda p: p.requires_grad, net.parameters()), lr=1e-4)
-            exp_lr_scheduler = lr_scheduler.StepLR(
-                optimizer_ft, step_size=30, gamma=0.1)
-            net = train_model(net, optimizer_ft,
-                              exp_lr_scheduler, num_epochs=60)
+    net = Net().to(device)
+
+    if TRAIN:
+        # TODO
+        scheduler = lambda x: (0.01 / 2) * (np.cos(PI * (np.mod(x - 1, 10*797) / (10*797))) + 1)
+        optimizer = optim.SGD(filter(lambda p: p.requires_grad, net.parameters()),
+                              lr=0.01, momentum=0.9, weight_decay=0.0001)
+        # scheduler = lambda x: 0.001* (0.1 **(x // 10))
+        # optimizer = optim.Adam(
+        #     filter(lambda p: p.requires_grad, net.parameters()), lr=1e-3)
+
+        if initial_checkpoint is not None:
+            net.load_state_dict(torch.load(initial_checkpoint, map_location=lambda storage, loc: storage))
+
+            checkpoint = torch.load(initial_checkpoint)
+            epoch = checkpoint['epoch']
+            batchs = checkpoint['batchs']
+            optimizer.load_state_dict(checkpoint['optimizer'])
+
+            # 加载best_dice
+            best_dice = checkpoint['best_dice']
+
+            train_model(net, optimizer,
+                              scheduler, epoch=epoch, num_epochs=50, batchs=batchs, best_dice=best_dice)
         else:
 
-            optimizer_ft = optim.Adam(
-                filter(lambda p: p.requires_grad, net.parameters()), lr=1e-4)
-            exp_lr_scheduler = lr_scheduler.StepLR(
-                optimizer_ft, step_size=30, gamma=0.1)
-            net = train_model(net, optimizer_ft,
-                              exp_lr_scheduler, num_epochs=60)
+            train_model(net, optimizer,
+                              scheduler, epoch=1, num_epochs=50, batchs=1, best_dice=0)
     else:
         net.load_state_dict(torch.load(
             PATH_MODEL_TEST))
@@ -121,27 +154,17 @@ if __name__ == '__main__':
             net.eval()
             dice = 0
             epoch_samples = 0
-            for inputs, labels in tqdm.tqdm(dataloaders['val']):
+            for inputs, labels in tqdm.tqdm(dataloaders['test']):
                 inputs = inputs.to(device)
                 labels = labels.to(device)
 
-                # forward
-                # track history if only in train
                 outputs = net(inputs)
                 dice += cal_dice(outputs, labels)
+                # dice += dice_accuracy(outputs, labels, is_average=False)
 
                 # statistics
                 epoch_samples += inputs.size(0)
 
-                # print_metrics(metrics, epoch_samples, 'test')
             epoch_dice = dice / epoch_samples
             print('dice: {}'.format(epoch_dice))
-            #
-            #     outputs = net(inputs)
-            #     loss = calc_loss(outputs, labels, metrics)
-            #
-            #     # statistics
-            #     epoch_samples += inputs.size(0)
-            #
-            # print_metrics(metrics, epoch_samples, 'test')
-            # epoch_loss = metrics['loss'] / epoch_samples
+

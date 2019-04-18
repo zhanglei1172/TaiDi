@@ -1,9 +1,6 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-import torch
-import numpy as np
-import random
 
 
 '''
@@ -17,31 +14,24 @@ import random
 transform = None
 DATA_PATH = "/home/zhang/Downloads/4040967758_mathcoder3/B题-全部数据/"
 # DATA_PATH = "/home/a117/B题-全部数据/"
-PATH_MODEL_TEST = '/home/zhang/下载/B题示例数据/lovasz_hinge 0.75.h5'
-PATH_MODEL_SAVE = 'model.h5'
+PATH_MODEL_TEST = '/home/zhang/下载/model(5).h5'
+PATH_CHECKPOINT = './'
+PATH_MODEL_BEST = '_model.pth'
 
-SHUFFLE = TRUE
+SHUFFLE = True
 
 
 
 TRAIN = True
-TRAIN_CONTINUE = False
+initial_checkpoint = None
 
-BATCH_SIZE = 4
+BATCH_SIZE = 1
 MIN_BOUND = 0.0
 MAX_BOUND = 2000.0
 
 
 REPRODUCT = True
-SEED = 2019
 
 
-if REPRODUCT:
-    torch.backends.cudnn.deterministic = True
-    torch.manual_seed(SEED)
-    # torch.cuda.manual_seed(SEED)
-    torch.cuda.manual_seed_all(SEED)
-    np.random.seed(SEED)
-    random.seed(SEED)
-torch.backends.cudnn.benchmark = True
-torch.backends.cudnn.enabled = True
+
+

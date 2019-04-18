@@ -1,6 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 from dependencies import *
+from config import *
 
 def itk_read(img_path):
     image = sitk.ReadImage(img_path) # z, y, x
