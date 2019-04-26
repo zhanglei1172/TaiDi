@@ -9,7 +9,7 @@ import traning.loss as L
 # from torch.autograd import Variable
 # from itertools import filterfalse as ifilterfalse
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+# device = torch.device('cpu')
 
 class ConvBn2d(nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size=3, padding=1, dilation=1, stride=1, groups=1, is_bn=True):
@@ -88,18 +88,6 @@ class Unet_scSE_hyper(nn.Module):
         loss = L.lovasz_hinge_relu(logit, truth, per_image=True, ignore=None)
         return loss
 
-    def criterion(self, logit, truth):
-        logit = logit.squeeze(1)
-        truth = truth.squeeze(1)
-        loss = L.lovasz_hinge(logit, truth, per_image=True, ignore=None)
-        return loss
-
-    def criterion2(self, logit, truth):
-        metric = torch.nn.BCEWithLogitsLoss(size_average=True, reduction='none')
-        logit = logit.squeeze(1)
-        truth = truth.squeeze(1)
-        loss = metric(logit, truth)
-        return loss
 
     def focal_loss(self, output, target, alpha, gamma, OHEM_percent):
         output = output.contiguous().view(-1)
@@ -192,33 +180,3 @@ class Unet_scSE_hyper(nn.Module):
         f = F.dropout2d(f, p=0.50)
         logit = self.logit(f)
         return logit
-
-    def criterion1(self, logit, truth):
-        loss = FocalLoss2d(gamma=0.5)(logit, truth, type='sigmoid')
-        return loss
-
-    # def criterion(self,logit, truth):
-    #     loss = F.binary_cross_entropy_with_logits(logit, truth)
-    #     return loss
-
-    def metric(self, logit, truth, threshold=0.5):
-        prob = F.sigmoid(logit)
-        # dice = dice_accuracy(prob, truth, threshold=threshold, is_average=True)
-        dice = accuracy(prob, truth, threshold=threshold, is_average=True)
-        return dice
-
-    def set_mode(self, mode, is_freeze_bn=False):
-        self.mode = mode
-        if mode in ['eval', 'valid', 'test']:
-            self.eval()
-        elif mode in ['train']:
-            self.train()
-            if is_freeze_bn == True:  ##freeze
-                for m in self.modules():
-                    if isinstance(m, nn.BatchNorm2d) or isinstance(m, SynchronizedBatchNorm2d):
-                        m.eval()
-                        m.weight.requires_grad = False
-                        m.bias.requires_grad = False
-
-        else:
-            raise NotImplementedError

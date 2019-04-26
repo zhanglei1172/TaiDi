@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # coding=utf-8
 
-from dependencies import *
+from librarys import *
 
 
-def adjust_learning_rate(optimizer, lr):
+def change_learning_rate(optimizer, lr):
     for param_group in optimizer.param_groups:
         param_group['lr'] = lr
 
@@ -13,8 +13,7 @@ def get_learning_rate(optimizer):
     lr = []
     for param_group in optimizer.param_groups:
         lr += [param_group['lr']]
-
-    assert (len(lr) == 1)  # we support only one param_group
+    assert (len(lr) == 1)
     lr = lr[0]
 
     return lr

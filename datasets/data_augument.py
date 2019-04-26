@@ -3,6 +3,8 @@
 import numpy as np
 import cv2
 from config import *
+IMG_WIDTH = 512
+IMG_HEIGHT = 512
 
 def gamma_transform(img, gamma):
     gamma_table = [np.power(x / 255.0, gamma) * 255.0 for x in range(256)]
@@ -35,3 +37,6 @@ def add_noise(img):
         temp_y = np.random.randint(0, IMG_WIDTH)
         img[temp_x][temp_y] = 1.
     return img
+
+
+

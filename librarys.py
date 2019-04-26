@@ -29,8 +29,10 @@ EPS = 1e-12
 PI  = np.pi
 INF = np.inf
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-device = torch.device('cpu')
+# device = torch.device('cpu')
 SEED = 2019
+
+
 
 if REPRODUCT:
     torch.backends.cudnn.deterministic = True
@@ -41,5 +43,8 @@ if REPRODUCT:
     random.seed(SEED)
 torch.backends.cudnn.benchmark = True
 torch.backends.cudnn.enabled = True
+
+
+
 #
 #

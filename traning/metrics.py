@@ -1,7 +1,20 @@
 #!/usr/bin/env python
 # coding=utf-8
-from dependencies import *
+from librarys import *
 # from config import *
+from sklearn.metrics import (accuracy_score, f1_score, recall_score, confusion_matrix, classification_report)
+
+def logits_to_pred(logits, lables):
+    return logits.sigmoid().squeeze().cpu().numpy() > 0.5, lables.squeeze().cpu().numpy()
+
+def print_report(logits, labels):
+    pred, labels = logits_to_pred(logits, labels)
+    target_names = ['无肿瘤标记', '有肿瘤标记']
+    print(classification_report(labels, logits))
+
+
+
+
 EPS = 1e-12
 def print_metrics(metrics, epoch_samples, phase):
     outputs = []
@@ -56,19 +69,19 @@ def show(inputs, logits, labels):
         prob = F.sigmoid(logit).cpu().squeeze().numpy()
 
         fig = plt.figure(i)
-        fig.add_subplot(141)
+        fig.add_subplot(221)
         plt.imshow(input_)
-        plt.title('原图')
+        plt.title('dicom')
 
-        fig.add_subplot(142)
+        fig.add_subplot(222)
         plt.imshow(prob)
         plt.title('prob')
 
-        fig.add_subplot(143)
+        fig.add_subplot(223)
         plt.imshow(prob > 0.5)
         plt.title('prob>0.5')
 
-        fig.add_subplot(144)
+        fig.add_subplot(224)
         plt.imshow(label)
         plt.title('label')
         plt.show()
@@ -80,37 +93,3 @@ def observe_grad(net):
         if isinstance(m, nn.Conv2d):
             print(m.weight.grad.norm(2))
 
-
-def dice_accuracy(prob, truth, threshold=0.5, is_average=True):
-    batch_size = prob.size(0)
-    p = prob.detach().view(batch_size, -1)
-    t = truth.detach().view(batch_size, -1)
-
-    p = p > threshold
-    t = t > 0.5
-    intersection = p & t
-    union = p | t
-    dice = (intersection.float().sum(1) + EPS) / (union.float().sum(1) + EPS)
-
-    if is_average:
-        dice = dice.sum() / batch_size
-        return dice
-    else:
-        return dice
-
-
-def accuracy(prob, truth, threshold=0.5, is_average=True):
-    batch_size = prob.size(0)
-    p = prob.detach().view(batch_size, -1)
-    t = truth.detach().view(batch_size, -1)
-
-    p = p > threshold
-    t = t > 0.5
-    correct = (p == t).float()
-    accuracy = correct.sum(1) / p.size(1)
-
-    if is_average:
-        accuracy = accuracy.sum() / batch_size
-        return accuracy
-    else:
-        return accuracy
